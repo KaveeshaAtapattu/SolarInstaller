@@ -1,9 +1,9 @@
 package routes
 
 import (
-	"net/http"
+	"SolarInstaller/routes/projectRoutes"
 	"SolarInstaller/routes/todoRoutes"
-	// "SolarInstaller/routes/userRoutes"
+	"net/http"
 
 	"github.com/go-chi/chi"
 )
@@ -13,7 +13,7 @@ func InitRoutes() http.Handler {
 
 	// Mount specific routes for each module
 	r.Mount("/todos", todoRoutes.TodoRouter())
-	// r.Mount("/users", userRoutes.UserRouter())
+	r.Mount("/projects", projectRoutes.ProjectRouter())
 
 	return r
 }
