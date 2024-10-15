@@ -2,6 +2,7 @@ package main
 
 import (
 	"SolarInstaller/config"
+	"SolarInstaller/middleware"
 	"SolarInstaller/routes"
 	"context"
 	"log"
@@ -17,7 +18,7 @@ func main() {
 	stopChan := make(chan os.Signal, 1)
 	signal.Notify(stopChan, os.Interrupt)
 
-	router := routes.InitRoutes()
+	router := middleware.CORS(routes.InitRoutes())
 
 	server := &http.Server{
 		Addr:         ":8080",
@@ -28,7 +29,7 @@ func main() {
 	}
 
 	go func() {
-		log.Println("Listening on port 9000...")
+		log.Println("Listening on port 8080...")
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("listen: %s\n", err)
 		}

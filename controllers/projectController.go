@@ -5,6 +5,7 @@ import (
 	"SolarInstaller/models"
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 
@@ -23,6 +24,8 @@ func CreateProjectHandler(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+
+	log.Println(p)
 
 	projectModel := models.ProjectModel{
 		ProjectName: p.ProjectName,
