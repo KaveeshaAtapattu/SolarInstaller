@@ -5,10 +5,12 @@ import (
 	"SolarInstaller/models"
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
+	"strings"
 	"time"
 
-	"github.com/go-chi/chi/v5"
+	// "github.com/go-chi/chi/v5"
 	"github.com/thedevsaddam/renderer"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -72,35 +74,74 @@ func CreateTodoHandler(w http.ResponseWriter, r *http.Request) {
 
 // UpdateTodoHandler updates a todo by ID
 func UpdateTodoHandler(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+	// Get the ID from the URL path
+	// Get the ID from the URL path
+	pathParts := strings.Split(r.URL.Path, "/")
+
+	// Get the last part of the path (the ID)
+	id := pathParts[len(pathParts)-1]
+
+
+
+	// Attempt to convert the ID to MongoDB's ObjectID
 	objID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
-		rnd.JSON(w, http.StatusBadRequest, map[string]interface{}{"message": "Invalid ID"})
+		log.Println("Invalid ID format:", err)
+		http.Error(w, "Invalid ID format", http.StatusBadRequest)
 		return
 	}
 
-	var t models.Todo
-	if err := json.NewDecoder(r.Body).Decode(&t); err != nil {
-		rnd.JSON(w, http.StatusBadRequest, err)
-		return
-	}
-
-	collection := config.DB.Collection("Solar")
-	filter := bson.M{"_id": objID}
-	update := bson.M{"$set": bson.M{"title": t.Title, "completed": t.Completed}}
-
-	_, err = collection.UpdateOne(context.TODO(), filter, update)
+	// Debug: Log the incoming request body
+	log.Println("Reading request body...")
+	var updateData models.Todo
+	err = json.NewDecoder(r.Body).Decode(&updateData)
 	if err != nil {
-		rnd.JSON(w, http.StatusInternalServerError, err)
+		log.Println("Failed to decode JSON:", err) // Debug: Log the error
+		http.Error(w, "Invalid JSON request body", http.StatusBadRequest)
 		return
 	}
 
-	rnd.JSON(w, http.StatusOK, map[string]interface{}{"message": "Todo updated"})
+	// Debug: Log the parsed data
+	log.Printf("Received Data: %+v\n", updateData)
+
+	// Prepare the update document
+	update := bson.M{
+		"$set": bson.M{
+			"title":     updateData.Title,
+			"completed": updateData.Completed,
+		},
+	}
+
+	// Perform the update in the database
+	collection := config.DB.Collection("Solar")
+	result, err := collection.UpdateOne(context.TODO(), bson.M{"_id": objID}, update)
+	if err != nil {
+		log.Println("Failed to update todo:", err)
+		http.Error(w, "Failed to update todo", http.StatusInternalServerError)
+		return
+	}
+
+	if result.MatchedCount == 0 {
+		http.Error(w, "Todo not found", http.StatusNotFound)
+		return
+	}
+
+	// Send a success response
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Todo updated successfully",
+	})
 }
 
 // DeleteTodoHandler deletes a todo by ID
 func DeleteTodoHandler(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+	// Get the ID from the URL path
+	pathParts := strings.Split(r.URL.Path, "/")
+
+	// Get the last part of the path (the ID)
+	id := pathParts[len(pathParts)-1]
+
 	objID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
 		rnd.JSON(w, http.StatusBadRequest, map[string]interface{}{"message": "Invalid ID"})
@@ -118,32 +159,46 @@ func DeleteTodoHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetTodoByIDHandler(w http.ResponseWriter, r *http.Request) {
-    // Get the ID from the URL
-    id := chi.URLParam(r, "id")
-	println(id)
+	// Get the ID from the URL path
+	pathParts := strings.Split(r.URL.Path, "/")
 
-    // Convert the ID string to MongoDB's ObjectID
-    objID, err := primitive.ObjectIDFromHex(id)
-    if err != nil {
-        rnd.JSON(w, http.StatusBadRequest, map[string]interface{}{
-            "message": "Invalid ID format",
-        })
-        return
-    }
+	// Get the last part of the path (the ID)
+	id := pathParts[len(pathParts)-1]
 
-    // Fetch the todo from the database
-    var todo models.TodoModel
-    collection := config.DB.Collection("Solar")
-    err = collection.FindOne(context.TODO(), bson.M{"_id": objID}).Decode(&todo)
-    if err != nil {
-        rnd.JSON(w, http.StatusNotFound, map[string]interface{}{
-            "message": "Todo not found",
-        })
-        return
-    }
+	// Debug: Log the extracted ID
+	log.Println("Extracted ID:", id)
 
-    // Send the fetched todo as a response
-    rnd.JSON(w, http.StatusOK, map[string]interface{}{
-        "data": todo,
-    })
+	// Check if the ID is a valid 24-character hexadecimal string
+	if len(id) != 24 {
+		rnd.JSON(w, http.StatusBadRequest, map[string]interface{}{
+			"message": "Invalid ID format: must be a 24-character hexadecimal string",
+		})
+		return
+	}
+
+	// Convert the ID string to MongoDB's ObjectID
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		rnd.JSON(w, http.StatusBadRequest, map[string]interface{}{
+			"message": "Failed to parse ID to ObjectID",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	// Fetch the todo from the database
+	var todo models.TodoModel
+	collection := config.DB.Collection("Solar")
+	err = collection.FindOne(context.TODO(), bson.M{"_id": objID}).Decode(&todo)
+	if err != nil {
+		rnd.JSON(w, http.StatusNotFound, map[string]interface{}{
+			"message": "Todo not found",
+		})
+		return
+	}
+
+	// Send the fetched todo as a response
+	rnd.JSON(w, http.StatusOK, map[string]interface{}{
+		"data": todo,
+	})
 }

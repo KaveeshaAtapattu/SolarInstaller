@@ -12,6 +12,7 @@ func TodoRouter() http.Handler {
 
 	r.Get("/", controllers.FetchTodosHandler)
 	r.Get("/{id}", controllers.GetTodoByIDHandler)
+
 	r.Post("/", controllers.CreateTodoHandler)
 	r.Put("/{id}", controllers.UpdateTodoHandler)
 	r.Delete("/{id}", controllers.DeleteTodoHandler)
