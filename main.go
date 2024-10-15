@@ -18,7 +18,14 @@ func main() {
 	stopChan := make(chan os.Signal, 1)
 	signal.Notify(stopChan, os.Interrupt)
 
+	
+
 	router := middleware.CORS(routes.InitRoutes())
+	
+	protected := http.NewServeMux()
+	protected.Handle("/protected", middleware.JWTMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Hello, authenticated user!"))
+	})))
 
 	server := &http.Server{
 		Addr:         ":8080",
